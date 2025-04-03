@@ -83,6 +83,19 @@ export class MyMCP extends McpAgent<Props, Env> {
 						{ name: "getPullRequest", description: "Get detailed information for a specific pull request by number" },
 						{ name: "getRepoFileContent", description: "Get the content of a specific file within a repository" },
 						{ name: "searchGitHubCode", description: "Search for code within GitHub repositories" },
+						{ name: "listCommits", description: "Get recent commit history for a branch" },
+						{ name: "getCommit", description: "Get details for a specific commit SHA" },
+						{ name: "listBranches", description: "List branches in a repository" },
+						{ name: "getBranch", description: "Get details for a specific branch" },
+						{ name: "listTags", description: "List tags in a repository" },
+						{ name: "createGist", description: "Create a new public or private Gist" },
+						// ---> Add new search tools here
+						{ name: "searchIssuesAndPRs", description: "Search for Issues and Pull Requests" },
+						{ name: "searchRepositories", description: "Search for repositories" },
+						{ name: "searchCommits", description: "Search for commits" },
+						{ name: "searchUsers", description: "Search for users and organizations" },
+						// ---> Add the unified search tool
+						{ name: "searchGitHub", description: "Search GitHub across multiple types (code, issues, repos, etc.)" },
 						// Add this tool itself to the list
 						{ name: "listAvailableTools", description: "Lists all available tools and their descriptions (manual list)." },
 					];
