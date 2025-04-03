@@ -9,7 +9,7 @@ const fileSchema = z.object({
 
 export function registerCreateGistTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "createGist",
+        "createGistGitHub",
         "Create a new public or private Gist",
         {
             description: z.string().optional().describe("A description for the Gist"),

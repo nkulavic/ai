@@ -4,7 +4,7 @@ import { Octokit } from "octokit";
 
 export function registerListCommitsTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "listCommits",
+        "listCommitsGitHub",
         "Get recent commit history for a branch in a repository",
         {
             owner: z.string().describe("The owner of the repository"),

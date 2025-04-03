@@ -7,7 +7,7 @@ const orderOptions = z.enum(["asc", "desc"]).optional().default("desc");
 
 export function registerSearchUsersTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "searchUsers",
+        "searchUsersGitHub",
         "Search for users and organizations across GitHub using user search syntax.",
         {
             query: z.string().describe("Search query using user search syntax (e.g., 'nkulavic type:user'). See: https://docs.github.com/en/search-github/searching-on-github/searching-users"),

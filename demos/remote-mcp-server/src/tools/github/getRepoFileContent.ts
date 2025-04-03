@@ -5,7 +5,7 @@ import { Buffer } from 'node:buffer'; // Needed for base64 decoding
 
 export function registerGetRepoFileContentTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "getRepoFileContent",
+        "getRepoFileContentGitHub",
         "Get the content of a specific file within a repository",
         {
             owner: z.string().describe("The owner of the repository (user or organization)"),

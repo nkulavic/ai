@@ -11,7 +11,7 @@ export function registerUserInfoOctokitTool(server: McpServer, props: Props | nu
 	if (accessToken) {
 		console.log(">>> Registering userInfoOctokit tool.");
 		server.tool(
-			"userInfoOctokit",
+			"userInfoGitHub",
 			"Get user info from GitHub, via Octokit",
 			{},
 			async () => {

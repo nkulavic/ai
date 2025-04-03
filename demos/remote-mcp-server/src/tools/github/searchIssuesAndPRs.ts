@@ -7,7 +7,7 @@ const orderOptions = z.enum(["asc", "desc"]).optional().default("desc");
 
 export function registerSearchIssuesAndPRsTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "searchIssuesAndPRs",
+        "searchIssuesAndPRsGitHub",
         "Search for Issues and Pull Requests across GitHub using GitHub issue search syntax.",
         {
             query: z.string().describe("Search query using issue search syntax (e.g., 'fix bug repo:owner/repo state:open'). See: https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests"),

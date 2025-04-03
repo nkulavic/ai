@@ -1,117 +1,302 @@
-# Remote MCP Server on Cloudflare
+# Remote MCP Server with GitHub OAuth
 
-Let's get a remote MCP server up-and-running on Cloudflare Workers complete with OAuth login!
+A production-ready Model Context Protocol (MCP) server implementation that provides authenticated access to GitHub API functionality through OAuth. Built on Cloudflare Workers, this server enables AI agents to interact with GitHub securely while maintaining state and authentication.
 
-## Develop locally
+## Overview
+
+This Remote MCP Server implements the Model Context Protocol (MCP) to expose GitHub API functionality as tools that AI agents can discover and use. It combines:
+- Cloudflare Workers for serverless deployment
+- GitHub OAuth for secure authentication
+- MCP for standardized AI agent communication
+- TypeScript for type safety
+- Zod for runtime validation
+
+## Core Architecture
+
+### 1. MCP Agent Implementation
+
+```typescript
+import { McpAgent } from "agents/mcp";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+
+type Props = {
+    login: string;
+    name: string;
+    email: string;
+    accessToken: string;
+};
+
+type Env = {
+    AI: Ai;
+    // Add other bindings as needed
+};
+
+export class MyMCP extends McpAgent<Props, Env> {
+    server = new McpServer({
+        name: "Github OAuth Proxy Demo",
+        version: "1.0.0",
+    });
+
+    async init() {
+        // Register tools
+        registerAddTool(this.server);
+        registerUserInfoOctokitTool(this.server, this.props);
+        registerGitHubTools(this.server, this.env, this.props);
+        
+        // Register tool discovery
+        this.registerToolDiscovery();
+    }
+}
+```
+
+### 2. OAuth Integration
+
+```typescript
+import OAuthProvider from "@cloudflare/workers-oauth-provider";
+
+export default new OAuthProvider({
+    apiRoute: "/sse",
+    apiHandler: MyMCP.mount('/sse'),
+    defaultHandler: GitHubHandler,
+    authorizeEndpoint: "/authorize",
+    tokenEndpoint: "/token",
+    clientRegistrationEndpoint: "/register",
+});
+```
+
+## Available Tools
+
+### 1. GitHub Repository Tools
+- `getRepository`: Repository metadata
+- `listMyRepos`: Authenticated user's repositories
+- `getRepoContents`: Repository file structure
+- `getRepoReadme`: Repository README
+- `getRepoFileContent`: File contents
+
+### 2. Issue & PR Management
+- `listIssues`: Repository issues
+- `createIssue`: New issue creation
+- `getIssue`: Issue details
+- `createComment`: Comment creation
+- `updateIssueState`: Issue state updates
+- `listPullRequests`: PR listing
+- `getPullRequest`: PR details
+
+### 3. Search Functionality
+- `searchGitHubCode`: Code search
+- `searchIssuesAndPRs`: Issues/PRs search
+- `searchRepositories`: Repository search
+- `searchCommits`: Commit search
+- `searchUsers`: User/org search
+- `searchGitHub`: Unified search
+
+### 4. Repository Management
+- `listBranches`: Branch listing
+- `getBranch`: Branch details
+- `listTags`: Tag listing
+- `listCommits`: Commit history
+- `getCommit`: Commit details
+
+### 5. User Operations
+- `userInfoOctokit`: User information
+- `createGist`: Gist creation
+
+## Implementation Guide
+
+### 1. Setup Project
 
 ```bash
-# clone the repository
-git clone git@github.com:cloudflare/ai.git
+# Install dependencies
+npm install @modelcontextprotocol/sdk @cloudflare/workers-oauth-provider zod
 
-# install dependencies
-cd ai
-npm install
-
-# run locally
-npx nx dev remote-mcp-server
+# Create KV namespace
+npx wrangler kv namespace create OAUTH_KV
 ```
 
-You should be able to open [`http://localhost:8787/`](http://localhost:8787/) in your browser
+### 2. Configure Environment
 
-## Connect the MCP inspector to your server
+```toml
+# wrangler.toml
+name = "remote-mcp-server"
+main = "src/index.ts"
 
-To explore your new MCP api, you can use the [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector).
+[vars]
+GITHUB_CLIENT_ID = "your_client_id"
+GITHUB_CLIENT_SECRET = "your_client_secret"
 
-- Start it with `npx @modelcontextprotocol/inspector`
-- [Within the inspector](http://localhost:5173), switch the Transport Type to `SSE` and enter `http://localhost:8787/sse` as the URL of the MCP server to connect to, and click "Connect"
-- You will navigate to a (mock) user/password login screen. Input any email and pass to login.
-- You should be redirected back to the MCP Inspector and you can now list and call any defined tools!
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "your_kv_namespace_id"
+```
 
-<div align="center">
-  <img src="img/mcp-inspector-sse-config.png" alt="MCP Inspector with the above config" width="600"/>
-</div>
+### 3. Implement Tool Registration
 
-<div align="center">
-  <img src="img/mcp-inspector-successful-tool-call.png" alt="MCP Inspector with after a tool call" width="600"/>
-</div>
+```typescript
+// tools/github/index.ts
+export function registerGitHubTools(
+    server: McpServer,
+    env: Env,
+    props: Props | null
+) {
+    if (!props?.accessToken) return;
 
-## Connect Claude Desktop to your local MCP server
+    const octokit = new Octokit({
+        auth: props.accessToken
+    });
 
-The MCP inspector is great, but we really want to connect this to Claude! Follow [Anthropic's Quickstart](https://modelcontextprotocol.io/quickstart/user) and within Claude Desktop go to Settings > Developer > Edit Config to find your configuration file.
+    // Register repository tools
+    server.tool(
+        "getRepository",
+        "Get details for a specific repository",
+        z.object({
+            owner: z.string(),
+            repo: z.string(),
+        }),
+        async ({ owner, repo }) => {
+            const response = await octokit.rest.repos.get({
+                owner,
+                repo,
+            });
+            return { result: response.data };
+        }
+    );
 
-Open the file in your text editor and replace it with this configuration:
-
-```json
-{
-  "mcpServers": {
-    "math": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "http://localhost:8787/sse"
-      ]
-    }
-  }
+    // Register other tools...
 }
 ```
 
-This will run a local proxy and let Claude talk to your MCP server over HTTP
+### 4. Tool Discovery Implementation
 
-When you open Claude a browser window should open and allow you to login. You should see the tools available in the bottom right. Given the right prompt Claude should ask to call the tool.
+```typescript
+private registerToolDiscovery() {
+    this.server.tool(
+        "listAvailableTools",
+        "Lists all available tools and their descriptions",
+        {},
+        async () => {
+            const toolInfo = [
+                { name: "add", description: "Add two numbers" },
+                { name: "userInfoOctokit", description: "Get user info from GitHub" },
+                // ... other tools
+            ];
+            
+            return {
+                content: [{
+                    type: "text",
+                    text: toolInfo.map(t => 
+                        `${t.name}: ${t.description}`
+                    ).join('\n')
+                }]
+            };
+        }
+    );
+}
+```
 
-<div align="center">
-  <img src="img/available-tools.png" alt="Clicking on the hammer icon shows a list of available tools" width="600"/>
-</div>
+## Integration Examples
 
-<div align="center">
-  <img src="img/claude-does-math-the-fancy-way.png" alt="Claude answers the prompt 'I seem to have lost my calculator and have run out of fingers. Could you use the math tool to add 23 and 19?' by invoking the MCP add tool" width="600"/>
-</div>
-
-## Deploy to Cloudflare
-
-1. `npx wrangler kv namespace create OAUTH_KV`
-2. Follow the guidance to add the kv namespace ID to `wrangler.jsonc`
-3. `npm run deploy`
-
-## Call your newly deployed remote MCP server from a remote MCP client
-
-Just like you did above in "Develop locally", run the MCP inspector:
-
-`npx @modelcontextprotocol/inspector@latest`
-
-Then enter the `workers.dev` URL (ex: `worker-name.account-name.workers.dev/sse`) of your Worker in the inspector as the URL of the MCP server to connect to, and click "Connect".
-
-You've now connected to your MCP server from a remote MCP client.
-
-## Connect Claude Desktop to your remote MCP server
-
-Update the Claude configuration file to point to your `workers.dev` URL (ex: `worker-name.account-name.workers.dev/sse`) and restart Claude 
+### 1. With Claude Desktop
 
 ```json
 {
-  "mcpServers": {
-    "math": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://worker-name.account-name.workers.dev/sse"
-      ]
+    "mcpServers": {
+        "github": {
+            "command": "npx",
+            "args": [
+                "mcp-remote",
+                "https://your-worker.workers.dev/sse"
+            ]
+        }
     }
-  }
 }
 ```
+
+### 2. With MCP Inspector
+
+```bash
+# Install and run inspector
+npx @modelcontextprotocol/inspector
+
+# Connect to your server
+# URL: http://localhost:8787/sse (local)
+# or https://your-worker.workers.dev/sse (production)
+```
+
+## Security Considerations
+
+### 1. Authentication Flow
+- OAuth token management
+- Secure session handling
+- Token scope limitations
+
+### 2. Error Handling
+```typescript
+try {
+    const response = await octokit.rest.repos.get({
+        owner,
+        repo,
+    });
+    return { result: response.data };
+} catch (error) {
+    console.error(`Error in getRepository:`, error);
+    return {
+        error: `Failed to get repository: ${
+            error instanceof Error ? error.message : String(error)
+        }`
+    };
+}
+```
+
+### 3. Rate Limiting
+- GitHub API rate limit handling
+- Worker request limits
+- Concurrent request management
 
 ## Debugging
 
-Should anything go wrong it can be helpful to restart Claude, or to try connecting directly to your
-MCP server on the command line with the following command.
-
+### 1. Local Development
 ```bash
+# Run locally
+npm run dev
+
+# Test MCP connection
 npx mcp-remote http://localhost:8787/sse
-```
 
-In some rare cases it may help to clear the files added to `~/.mcp-auth`
-
-```bash
+# Clear auth cache if needed
 rm -rf ~/.mcp-auth
 ```
+
+### 2. Production Monitoring
+- Worker analytics
+- Error logging
+- OAuth flow tracking
+
+## Deployment
+
+```bash
+# Deploy to Cloudflare
+npm run deploy
+
+# Update secrets
+npx wrangler secret put GITHUB_CLIENT_SECRET
+```
+
+## Contributing
+
+1. Fork repository
+2. Create feature branch
+3. Implement changes
+4. Add tests
+5. Submit PR
+
+## Resources
+
+- [MCP Documentation](https://modelcontextprotocol.io/docs)
+- [Cloudflare Workers](https://developers.cloudflare.com/workers/)
+- [GitHub REST API](https://docs.github.com/en/rest)
+- [OAuth 2.0 Specification](https://oauth.net/2/)
+
+## License
+
+MIT License - See LICENSE file for details

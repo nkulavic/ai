@@ -4,7 +4,7 @@ import { Octokit } from "octokit";
 
 export function registerGetCommitTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "getCommit",
+        "getCommitGitHub",
         "Get details for a specific commit SHA",
         {
             owner: z.string().describe("The owner of the repository"),

@@ -4,7 +4,7 @@ import { Octokit } from "octokit";
 
 export function registerGetBranchTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "getBranch",
+        "getBranchGitHub",
         "Get details for a specific branch",
         {
             owner: z.string().describe("The owner of the repository"),

@@ -3,7 +3,7 @@ import { Octokit } from "octokit";
 
 export function registerListMyReposTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "listMyRepos",
+        "listMyReposGitHub",
         "List repositories for the authenticated user",
         {},
         async () => {

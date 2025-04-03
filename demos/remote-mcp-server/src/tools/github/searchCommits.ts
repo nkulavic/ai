@@ -8,7 +8,7 @@ const orderOptions = z.enum(["asc", "desc"]).optional().default("desc");
 
 export function registerSearchCommitsTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "searchCommits",
+        "searchCommitsGitHub",
         "Search for commits across GitHub using commit search syntax. Limited to default branch unless repo specified.",
         {
             query: z.string().describe("Search query using commit search syntax (e.g., 'fix: handle redirect repo:owner/repo'). See: https://docs.github.com/en/search-github/searching-on-github/searching-commits"),

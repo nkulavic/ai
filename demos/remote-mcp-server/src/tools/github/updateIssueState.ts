@@ -4,7 +4,7 @@ import { Octokit } from "octokit";
 
 export function registerUpdateIssueStateTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "updateIssueState",
+        "updateIssueStateGitHub",
         "Update the state of an issue (open or closed)",
         {
             owner: z.string().describe("The owner of the repository (user or organization)"),

@@ -5,7 +5,7 @@ import { Buffer } from 'node:buffer'; // Needed for base64 decoding
 
 export function registerGetRepoReadmeTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "getRepoReadme",
+        "getRepoReadmeGitHub",
         "Get the content of the README file for a repository",
         {
             owner: z.string().describe("The owner of the repository (user or organization)"),

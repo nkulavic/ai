@@ -7,7 +7,7 @@ const orderOptions = z.enum(["asc", "desc"]).optional().default("desc");
 
 export function registerSearchRepositoriesTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "searchRepositories",
+        "searchRepositoriesGitHub",
         "Search for repositories across GitHub using repository search syntax.",
         {
             query: z.string().describe("Search query using repository search syntax (e.g., 'mcp-server language:typescript'). See: https://docs.github.com/en/search-github/searching-on-github/searching-for-repositories"),

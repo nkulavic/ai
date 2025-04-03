@@ -4,7 +4,7 @@ import { Octokit } from "octokit";
 
 export function registerListTagsTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "listTags",
+        "listTagsGitHub",
         "List tags in a repository",
         {
             owner: z.string().describe("The owner of the repository"),

@@ -4,7 +4,7 @@ import { Octokit } from "octokit";
 
 export function registerListPullRequestsTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "listPullRequests",
+        "listPullRequestsGitHub",
         "List pull requests for a specific repository",
         {
             owner: z.string().describe("The owner of the repository (user or organization)"),

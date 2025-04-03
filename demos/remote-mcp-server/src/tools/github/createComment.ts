@@ -4,7 +4,7 @@ import { Octokit } from "octokit";
 
 export function registerCreateCommentTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "createComment",
+        "createCommentGitHub",
         "Add a comment to a specific issue or pull request",
         {
             owner: z.string().describe("The owner of the repository (user or organization)"),

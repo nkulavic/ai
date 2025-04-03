@@ -4,7 +4,7 @@ import { Octokit } from "octokit";
 
 export function registerGetRepoContentsTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "getRepoContents",
+        "getRepoContentsGitHub",
         "List files and directories at a specific path within a repository",
         {
             owner: z.string().describe("The owner of the repository (user or organization)"),

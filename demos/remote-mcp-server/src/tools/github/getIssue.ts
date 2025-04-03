@@ -4,7 +4,7 @@ import { Octokit } from "octokit";
 
 export function registerGetIssueTool(server: McpServer, octokit: Octokit) {
     server.tool(
-        "getIssue",
+        "getIssueGitHub",
         "Get detailed information for a specific issue by number",
         {
             owner: z.string().describe("The owner of the repository (user or organization)"),
