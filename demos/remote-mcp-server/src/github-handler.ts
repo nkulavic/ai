@@ -35,7 +35,7 @@ app.get("/authorize", async (c) => {
 	const state = btoa(JSON.stringify(oauthReqInfo));
 	const githubAuthorizeUrl = getUpstreamAuthorizeUrl({
 		upstream_url: "https://github.com/login/oauth/authorize",
-		scope: "read:user", // Added default scope, adjust if needed
+		scope: "repo user gist read:org read:user read:discussion read:packages read:project read:enterprise",
 		client_id: c.env.GITHUB_OAUTH_CLIENT_ID,
 		redirect_uri: callbackUrl,
 		state: state,
