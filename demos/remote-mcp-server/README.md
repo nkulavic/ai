@@ -69,6 +69,9 @@ This server exposes a wide range of GitHub functionalities. Each tool requires s
   > *Example: "@GitHub List the open pull requests for [owner]/[repo-name]."*
 - `getPullRequestGitHub`: PR details
   > *Example: "@GitHub Show me the details for pull request #[pr-number] in [owner]/[repo-name]."*
+- `previewPullRequestGitHub`: PR changes preview
+  > *Example: "@GitHub Show me a preview of the changes in pull request #[pr-number] in [owner]/[repo-name]."*
+  > *Example: "@GitHub What files were changed in PR #[pr-number] in [owner]/[repo-name]?"*
 
 ### 3. Search Functionality
 
@@ -333,19 +336,19 @@ Configure Claude Desktop to use your MCP server:
 
 1.  Go to Settings > Developer > Edit Config.
 2.  Replace the file contents with:
-    ```json
-    {
-      "mcpServers": {
+```json
+{
+  "mcpServers": {
         "github": { // Choose a name for the server in Claude
-          "command": "npx",
-          "args": [
+      "command": "npx",
+      "args": [
             "mcp-remote", // The proxy command
             "https://your-worker-name.your-account.workers.dev/sse" // URL to your deployed server
-          ]
-        }
-      }
+      ]
     }
-    ```
+  }
+}
+```
 3.  Restart Claude. It should open a browser window for GitHub authentication when you first try to use a tool.
 
 ## Example Workflows & Time Savings
@@ -641,7 +644,7 @@ export class MyMCP extends McpAgent<Props, Env> {
     // Helper method for tool discovery (manual list)
     private registerToolDiscovery() {
         // Implementation detailed further below
-    }
+  }
 }
 ```
 

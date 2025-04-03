@@ -30,6 +30,7 @@ import { registerSearchRepositoriesTool } from "./github/searchRepositories";
 import { registerSearchCommitsTool } from "./github/searchCommits";
 import { registerSearchUsersTool } from "./github/searchUsers";
 import { registerSearchGitHubTool } from "./github/searchGitHub";
+import { registerPreviewPullRequestTool } from "./github/previewPullRequest";
 
 // Define common types if needed, or import from a central types file
 type Props = { accessToken?: string; /* other props */ };
@@ -73,6 +74,7 @@ export function registerGitHubTools(server: McpServer, env: Env | unknown, props
 	registerSearchCommitsTool(server, octokit);
 	registerSearchUsersTool(server, octokit);
 	registerSearchGitHubTool(server, octokit);
+	registerPreviewPullRequestTool(server, octokit);
 
 	console.log(">>> Finished registering GitHub tools.");
 } 
