@@ -84,6 +84,7 @@ app.post("/approve", async (c) => {
 
 	// The user must be successfully logged in and have approved the scopes, so we
 	// can complete the authorization request
+	console.log(">>> Approving with oauthReqInfo:", JSON.stringify(oauthReqInfo, null, 2));
 	const { redirectTo } = await c.env.OAUTH_PROVIDER.completeAuthorization({
 		request: oauthReqInfo,
 		userId: email,

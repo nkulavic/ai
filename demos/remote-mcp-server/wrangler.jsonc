@@ -7,6 +7,7 @@
 	"name": "remote-mcp-server",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-03-10",
+	"compatibility_flags": ["nodejs_compat"],
 	"migrations": [
 		{
 			"new_sqlite_classes": ["MyMCP"],
@@ -24,9 +25,13 @@
 	"kv_namespaces": [
 		{
 			"binding": "OAUTH_KV",
-			"id": "<ADD YOUR KV NAMESPACEID HERE>"
+			"id": "fc21bd55fb96477fa29926752da837ac"
 		}
 	],
+	"vars": {
+		"GITHUB_OAUTH_CLIENT_ID": "Ov23liYK2SmNliFvTZnM",
+		"GITHUB_OAUTH_CLIENT_SECRET": "f5964b3bf3ad1849f4f5a9ec7f7d652a7dce2f6d"
+	},
 	"observability": {
 		"enabled": true
 	},
