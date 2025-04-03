@@ -7,19 +7,21 @@ A production-ready Model Context Protocol (MCP) server implementation that provi
 ## Table of Contents
 
 - [Overview](#overview)
-- [Features: Available Tools](#features-available-tools)
-- [Setup & Configuration](#setup--configuration)
-- [Local Development & Testing](#local-development--testing)
-- [Deployment](#deployment)
-- [Integration Examples](#integration-examples)
-- [Example Workflows & Time Savings](#example-workflows--time-savings)
-- [Testing Tool Functionality](#testing-tool-functionality)
-- [Core Architecture Explained](#core-architecture-explained)
-- [OAuth Authentication Flow Explained](#oauth-authentication-flow-explained)
-- [Security Considerations](#security-considerations)
-- [Debugging](#debugging)
-- [Contributing](#contributing)
-- [Resources](#resources)
+- [For End Users](#for-end-users)
+  - [Available Tools & Usage Examples](#available-tools--usage-examples)
+  - [Connecting Clients (Integration)](#connecting-clients-integration)
+  - [Example Workflows & Time Savings](#example-workflows--time-savings)
+  - [Testing Tool Usage](#testing-tool-usage)
+- [For Developers](#for-developers)
+  - [Setup & Configuration](#setup--configuration)
+  - [Local Development & Testing](#local-development--testing)
+  - [Deployment](#deployment)
+  - [Core Architecture Explained](#core-architecture-explained)
+  - [OAuth Authentication Flow Explained](#oauth-authentication-flow-explained)
+  - [Security Considerations](#security-considerations)
+  - [Debugging](#debugging)
+  - [Contributing](#contributing)
+  - [Resources](#resources)
 - [License](#license)
 
 ## Overview
@@ -33,9 +35,13 @@ This Remote MCP Server implements the Model Context Protocol (MCP) to expose Git
 - TypeScript for type safety
 - Zod for runtime validation of tool parameters
 
-## Features: Available Tools
+## For End Users
 
-This server exposes a wide range of GitHub functionalities. Each tool requires specific parameters defined by a Zod schema. Below are examples of how you might invoke these tools using natural language with an integrated AI assistant (like Cursor).
+This section covers how to connect to and use the functionalities provided by a deployed instance of this MCP server.
+
+### Available Tools & Usage Examples
+
+This server exposes a wide range of GitHub functionalities as "tools" that an AI assistant can use. Each tool requires specific parameters. Below are examples of how you might invoke these tools using natural language with an integrated AI assistant (like Cursor or Cloudflare AI Playground).
 
 ### 1. GitHub Repository Tools
 
@@ -120,185 +126,22 @@ This server exposes a wide range of GitHub functionalities. Each tool requires s
   > *Example: "@GitHub What tools do you have available?"*
   > *Example: "@GitHub List available tools."*
 
-## Setup & Configuration
+### Connecting Clients (Integration)
 
-Follow these steps to set up the server for local development or deployment.
+Connect various clients to your deployed MCP server. You will typically need the SSE (Server-Sent Events) URL of the deployed server, which looks like `https://your-worker-name.your-account.workers.dev/sse`.
 
-### 1. Prerequisites
+**Authentication Note:** For all clients, the first time you attempt to use a tool that requires GitHub access, the client should trigger the server's OAuth flow, opening your browser to ask for GitHub login and authorization for the specific permissions needed (like `repo`, `user`, `gist`). Once authorized, the client can use the tools.
 
-*   Clone the repository containing this project.
-*   Install Node.js and npm.
-*   Install project dependencies:
-    ```bash
-    npm install @modelcontextprotocol/sdk @cloudflare/workers-oauth-provider zod octokit agents@latest # Ensure agents/mcp is available
-    ```
-*   Install and log in to the Wrangler CLI:
-    ```bash
-    npm install -g wrangler
-    wrangler login
-    ```
+#### 1. With MCP Inspector
 
-### 2. GitHub OAuth App Setup
+The [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) is primarily a developer tool (see Developer section), but end-users can use it to explore tools if needed.
 
-You need to create a GitHub OAuth App to get the necessary credentials.
+1.  Run `npx @modelcontextprotocol/inspector`.
+2.  Connect using `SSE` transport type and the server's `/sse` URL (e.g., `https://your-worker-name.your-account.workers.dev/sse`).
+3.  Follow the authentication prompts in your browser.
+4.  Once connected, you can select tools, provide parameters, and see results.
 
-1.  **Create GitHub OAuth App:**
-    *   Go to GitHub Settings → Developer Settings → OAuth Apps → **New OAuth App**.
-    *   **Application name:** Choose a name (e.g., "My MCP Server Dev").
-    *   **Homepage URL:** For local development, use `http://localhost:8787`. For production, use your deployed worker URL (e.g., `https://your-worker-name.your-account.workers.dev`).
-    *   **Authorization callback URL:** This is crucial. Set it to `[Homepage URL]/callback`. For local development, it's `http://localhost:8787/callback`. For production, it's `https://your-worker-name.your-account.workers.dev/callback`.
-    *   Click **Register application**.
-2.  **Get Credentials:**
-    *   On the app's page, note down the **Client ID**.
-    *   Generate a **New client secret** and copy it immediately. You won't be able to see it again.
-3.  **Required Scopes:** This application requires the following scopes for the tools to function correctly. Ensure your OAuth handler requests them (typically configured in `github-handler.ts`):
-    ```typescript
-    const GITHUB_SCOPES = [
-        'repo',            // Repository access (read/write)
-        'user',            // User information (read)
-        'gist',            // Gist creation
-        'read:org'         // Organization membership (read)
-    ].join(' ');
-    ```
-
-### 3. Cloudflare KV Namespace Setup
-
-A KV namespace is required to store OAuth session data securely.
-
-*   **Create KV Namespace:**
-    ```bash
-    # Replace OAUTH_KV with your desired namespace name if different
-    npx wrangler kv namespace create OAUTH_KV
-    ```
-*   **Note the IDs:** Wrangler will output the namespace `id` and `preview_id`. You need these for `wrangler.jsonc`.
-
-**KV Namespace Strategy:**
-
-*   **One Namespace Per Application Type:** Use this `OAUTH_KV` namespace *only* for this GitHub OAuth MCP server application.
-*   **Separate Namespaces Per Environment (Recommended):** For `dev`, `staging`, and `production` environments, create *separate physical KV namespaces* (e.g., `oauth-kv-dev`, `oauth-kv-staging`, `oauth-kv-prod`). Use the corresponding `id` and `preview_id` in each environment's `wrangler.jsonc` configuration, but keep the `binding` name (`OAUTH_KV`) consistent in your code.
-
-### 4. Environment Configuration (`wrangler.jsonc`)
-
-Configure your `wrangler.jsonc` file with your Cloudflare account details, GitHub credentials, and KV namespace binding.
-
-```jsonc
-// wrangler.jsonc
-{
-  "name": "remote-mcp-server", // Your worker name
-  "main": "src/index.ts",
-  "compatibility_date": "2024-03-18", // Or your preferred date
-  "vars": {
-    // From your GitHub OAuth App settings
-    "GITHUB_CLIENT_ID": "YOUR_GITHUB_OAUTH_APP_CLIENT_ID"
-    // Note: GITHUB_CLIENT_SECRET should be set as a secret
-  },
-  "kv_namespaces": [
-    {
-      "binding": "OAUTH_KV", // The binding name used in your Worker code (Env.OAUTH_KV)
-      "id": "YOUR_OAUTH_KV_NAMESPACE_ID", // Paste the 'id' from 'wrangler kv namespace create'
-      "preview_id": "YOUR_PREVIEW_ID" // Paste the 'preview_id' for local development
-    }
-  ]
-  // Add build configuration if needed, e.g.:
-  // "build": {
-  //   "command": "npm run build"
-  // }
-}
-```
-
-**Important:**
-
-*   Replace placeholder values with your actual GitHub Client ID and KV Namespace IDs.
-*   **Set the Client Secret securely:** Do **not** put `GITHUB_CLIENT_SECRET` directly in the `vars` section. Use Wrangler secrets:
-    ```bash
-    # Replace YOUR_GITHUB_OAUTH_APP_CLIENT_SECRET with the actual secret
-    npx wrangler secret put GITHUB_CLIENT_SECRET
-    # Follow the prompts
-    ```
-
-## Local Development & Testing
-
-### Running Locally
-
-1.  Ensure all setup steps (OAuth App, KV, `wrangler.jsonc`, secrets) are complete.
-2.  Start the local development server:
-    ```bash
-    # Use --local for local mode, --persist to keep data between runs,
-    # and bind the KV namespace needed for OAuth sessions
-    npx wrangler dev --local --persist --kv=OAUTH_KV
-    ```
-3.  Open your browser to `http://localhost:8787`. This should trigger the GitHub OAuth flow if you haven't authenticated recently.
-
-### Testing with MCP Inspector
-
-The [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) is a dedicated web application designed for developers to interact with and debug MCP servers. It allows you to connect to any MCP server (local or remote), view its available tools, manually call those tools with specific parameters, and inspect the raw request/response communication.
-
-**Installation/Running:**
-
-You can run the MCP Inspector directly using `npx`:
-
-```bash
-npx @modelcontextprotocol/inspector
-```
-
-This command downloads and runs the latest version of the inspector, typically making it available at `http://localhost:5173` in your browser.
-
-**Connecting to Your Server:**
-
-1.  **Open Inspector:** Navigate to the Inspector UI (e.g., `http://localhost:5173`).
-2.  **Configure Transport:**
-    *   Select `SSE` (Server-Sent Events) as the **Transport Type**.
-    *   Enter the **URL** of your MCP server's SSE endpoint:
-        *   **Local:** `http://localhost:8787/sse` (when running with `wrangler dev`)
-        *   **Deployed:** `https://your-worker-name.your-account.workers.dev/sse` (replace with your actual worker URL)
-3.  **Connect:** Click the **Connect** button.
-
-**Authentication Flow:**
-
-*   Since your server requires authentication, clicking "Connect" will initiate the OAuth flow.
-*   The Inspector will likely open a new browser tab or window redirecting you to `http://localhost:8787` (or your deployed URL), which in turn redirects to GitHub for login and authorization.
-*   Log in to GitHub (if necessary) and authorize the OAuth App you created.
-*   Upon successful authorization, GitHub redirects back to your worker's `/callback` endpoint.
-*   Your worker handles the callback, exchanges the code for a token, stores the session in KV, and sets a session cookie.
-*   The browser is then redirected back to the MCP Inspector UI.
-*   The Inspector, now possessing the session cookie, establishes the persistent SSE connection to your `/sse` endpoint.
-
-**Using Tools:**
-
-1.  **View Tools:** Once connected and authenticated, the Inspector should display a list of available tools fetched from your server (using the `listAvailableTools` meta-tool, if implemented, or by introspection).
-2.  **Select Tool:** Choose a tool from the dropdown menu (e.g., `getRepositoryGitHub`).
-3.  **Enter Parameters:** Input fields will appear based on the tool's Zod schema. Fill in the required parameters (e.g., `owner`: "cloudflare", `repo`: "workers-sdk").
-4.  **Call Tool:** Click the **Call Tool** button.
-5.  **View Response:** The Inspector will display the response received from the server, including the result or any errors, often allowing you to view the raw JSON or text content.
-
-**Debugging:**
-
-The Inspector is invaluable for debugging:
-
-*   **Verify Tool Discovery:** Ensure all expected tools are listed.
-*   **Test Tool Logic:** Call tools with different parameters to check their behavior and error handling.
-*   **Inspect Communication:** Some versions of the inspector might show the raw MCP messages being exchanged over the SSE connection, helping diagnose protocol-level issues.
-*   **Isolate Issues:** If a tool works in the Inspector but not in another client (like Claude or Cursor), the issue likely lies in the client's configuration or interaction, not the server itself.
-
-## Deployment
-
-1.  Ensure your `wrangler.jsonc` is configured correctly for your target environment (using environment-specific KV IDs if applicable).
-2.  Ensure the `GITHUB_CLIENT_SECRET` secret is set for the production environment.
-3.  Deploy the worker:
-    ```bash
-    npx wrangler deploy
-    ```
-4.  Update your GitHub OAuth App's **Homepage URL** and **Authorization callback URL** to use your deployed worker's URL (e.g., `https://your-worker-name.your-account.workers.dev`).
-
-## Integration Examples
-
-Connect various clients to your deployed MCP server.
-
-### 1. With MCP Inspector (Remote)
-
-This is covered in the "Testing with MCP Inspector" section above. Simply use your deployed worker's SSE URL when connecting.
-
-### 2. With Cursor Editor
+#### 2. With Cursor Editor
 
 Integrate the tools directly into the Cursor editor:
 
@@ -311,12 +154,12 @@ Integrate the tools directly into the Cursor editor:
 4.  **Save Settings.**
 5.  **Authenticate:** The first time you use a tool (e.g., `@GitHub OAuth Tools list my repos`), Cursor triggers the connection, opening your browser for GitHub login and authorization.
 
-### 3. With Cloudflare AI Playground
+#### 3. With Cloudflare AI Playground
 
-The Cloudflare AI Playground also supports connecting to remote MCP servers, providing another way to test your tools directly.
+Use the tools within the Cloudflare AI Playground:
 
 1.  **Navigate to AI Playground:** Go to [playground.ai.cloudflare.com](https://playground.ai.cloudflare.com/).
-2.  **Open Settings:** Click the gear icon (⚙️) in the top right corner to open Settings.
+2.  **Open Settings:** Click the gear icon (⚙️) in the top right corner.
 3.  **Configure Tool Usage:** Scroll down to the "Tool usage" section.
 4.  **Add MCP Server:**
     *   Click "Connect a Tool Provider".
@@ -325,12 +168,10 @@ The Cloudflare AI Playground also supports connecting to remote MCP servers, pro
     *   **URL:** Enter the full SSE URL of your deployed worker (e.g., `https://your-worker-name.your-account.workers.dev/sse`).
     *   Leave authentication fields blank.
     *   Click "Connect".
-5.  **Select Tools:** Once connected, you should see your server listed. Ensure it's toggled on for use in the playground.
-6.  **Authenticate & Use:** Start a new chat session. When you prompt the AI model to use one of your GitHub tools, the playground will initiate the connection to your `/sse` endpoint. This will trigger the OAuth flow, redirecting you to GitHub for authorization in a new tab or window. After successful authentication, the playground can use the tools via the established session.
+5.  **Select Tools:** Ensure the newly added server is toggled on.
+6.  **Authenticate & Use:** Start a chat. When you prompt the AI to use a GitHub tool, the playground initiates the OAuth flow via your browser.
 
-**Note:** As with other clients, ensure your worker is deployed and the URL is correct. You might need to refresh the playground page after connecting the server or after successful authentication.
-
-### 4. With Claude Desktop
+#### 4. With Claude Desktop (Anthropic)
 
 Configure Claude Desktop to use your MCP server:
 
@@ -351,7 +192,7 @@ Configure Claude Desktop to use your MCP server:
 ```
 3.  Restart Claude. It should open a browser window for GitHub authentication when you first try to use a tool.
 
-## Example Workflows & Time Savings
+### Example Workflows & Time Savings
 
 Leveraging this MCP server through integrated clients like Cursor or the AI Playground can significantly streamline common developer workflows compared to manual methods involving the GitHub UI or CLI switching.
 
@@ -426,7 +267,7 @@ Leveraging this MCP server through integrated clients like Cursor or the AI Play
 
 *This section aims to illustrate potential efficiency gains using the currently implemented tools. Actual time saved will vary. The primary benefit often lies in reduced cognitive load from staying within a single development environment.*
 
-## Testing Tool Functionality
+### Testing Tool Usage
 
 This section provides example prompts and expected outcomes for testing each available tool using an integrated client like Cursor or the AI Playground. Replace bracketed placeholders like `[owner]`, `[repo-name]`, `[issue-number]`, etc., with actual values during testing.
 
@@ -577,13 +418,185 @@ This section provides example prompts and expected outcomes for testing each ava
 -   **Expected Outcome:** Returns a formatted list of all available tools and their descriptions (as manually defined in the code).
 -   **Potential Errors:** Should work reliably if the server is running.
 
----
+## For Developers
 
-## Core Architecture Explained
+This section provides details for developers who want to set up, run, modify, deploy, or contribute to this MCP server project.
+
+### Setup & Configuration
+
+Follow these steps to set up the server for local development or deployment.
+
+#### 1. Prerequisites
+
+*   Clone the repository containing this project.
+*   Install Node.js and npm.
+*   Install project dependencies:
+    ```bash
+    npm install @modelcontextprotocol/sdk @cloudflare/workers-oauth-provider zod octokit agents@latest # Ensure agents/mcp is available
+    ```
+*   Install and log in to the Wrangler CLI:
+    ```bash
+    npm install -g wrangler
+    wrangler login
+    ```
+
+#### 2. GitHub OAuth App Setup
+
+You need to create a GitHub OAuth App to get the necessary credentials.
+
+1.  **Create GitHub OAuth App:**
+    *   Go to GitHub Settings → Developer Settings → OAuth Apps → **New OAuth App**.
+    *   **Application name:** Choose a name (e.g., "My MCP Server Dev").
+    *   **Homepage URL:** For local development, use `http://localhost:8787`. For production, use your deployed worker URL (e.g., `https://your-worker-name.your-account.workers.dev`).
+    *   **Authorization callback URL:** This is crucial. Set it to `[Homepage URL]/callback`. For local development, it's `http://localhost:8787/callback`. For production, it's `https://your-worker-name.your-account.workers.dev/callback`.
+    *   Click **Register application**.
+2.  **Get Credentials:**
+    *   On the app's page, note down the **Client ID**.
+    *   Generate a **New client secret** and copy it immediately. You won't be able to see it again.
+3.  **Required Scopes:** This application requires the following scopes for the tools to function correctly. Ensure your OAuth handler requests them (typically configured in `github-handler.ts`):
+    ```typescript
+    const GITHUB_SCOPES = [
+        'repo',            // Repository access (read/write)
+        'user',            // User information (read)
+        'gist',            // Gist creation
+        'read:org'         // Organization membership (read)
+    ].join(' ');
+    ```
+
+#### 3. Cloudflare KV Namespace Setup
+
+A KV namespace is required to store OAuth session data securely.
+
+*   **Create KV Namespace:**
+    ```bash
+    # Replace OAUTH_KV with your desired namespace name if different
+    npx wrangler kv namespace create OAUTH_KV
+    ```
+*   **Note the IDs:** Wrangler will output the namespace `id` and `preview_id`. You need these for `wrangler.jsonc`.
+
+**KV Namespace Strategy:**
+
+*   **One Namespace Per Application Type:** Use this `OAUTH_KV` namespace *only* for this GitHub OAuth MCP server application.
+*   **Separate Namespaces Per Environment (Recommended):** For `dev`, `staging`, and `production` environments, create *separate physical KV namespaces* (e.g., `oauth-kv-dev`, `oauth-kv-staging`, `oauth-kv-prod`). Use the corresponding `id` and `preview_id` in each environment's `wrangler.jsonc` configuration, but keep the `binding` name (`OAUTH_KV`) consistent in your code.
+
+#### 4. Environment Configuration (`wrangler.jsonc`)
+
+Configure your `wrangler.jsonc` file with your Cloudflare account details, GitHub credentials, and KV namespace binding.
+
+```jsonc
+// wrangler.jsonc
+{
+  "name": "remote-mcp-server", // Your worker name
+  "main": "src/index.ts",
+  "compatibility_date": "2024-03-18", // Or your preferred date
+  "vars": {
+    // From your GitHub OAuth App settings
+    "GITHUB_CLIENT_ID": "YOUR_GITHUB_OAUTH_APP_CLIENT_ID"
+    // Note: GITHUB_CLIENT_SECRET should be set as a secret
+  },
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV", // The binding name used in your Worker code (Env.OAUTH_KV)
+      "id": "YOUR_OAUTH_KV_NAMESPACE_ID", // Paste the 'id' from 'wrangler kv namespace create'
+      "preview_id": "YOUR_PREVIEW_ID" // Paste the 'preview_id' for local development
+    }
+  ]
+  // Add build configuration if needed, e.g.:
+  // "build": {
+  //   "command": "npm run build"
+  // }
+}
+```
+
+**Important:**
+
+*   Replace placeholder values with your actual GitHub Client ID and KV Namespace IDs.
+*   **Set the Client Secret securely:** Do **not** put `GITHUB_CLIENT_SECRET` directly in the `vars` section. Use Wrangler secrets:
+    ```bash
+    # Replace YOUR_GITHUB_OAUTH_APP_CLIENT_SECRET with the actual secret
+    npx wrangler secret put GITHUB_CLIENT_SECRET
+    # Follow the prompts
+    ```
+
+### Local Development & Testing
+
+#### Running Locally
+
+1.  Ensure all setup steps (OAuth App, KV, `wrangler.jsonc`, secrets) are complete.
+2.  Start the local development server:
+    ```bash
+    # Use --local for local mode, --persist to keep data between runs,
+    # and bind the KV namespace needed for OAuth sessions
+    npx wrangler dev --local --persist --kv=OAUTH_KV
+    ```
+3.  Open your browser to `http://localhost:8787`. This should trigger the GitHub OAuth flow if you haven't authenticated recently.
+
+#### Testing with MCP Inspector
+
+The [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) is a dedicated web application designed for developers to interact with and debug MCP servers. It allows you to connect to any MCP server (local or remote), view its available tools, manually call those tools with specific parameters, and inspect the raw request/response communication.
+
+**Installation/Running:**
+
+You can run the MCP Inspector directly using `npx`:
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+This command downloads and runs the latest version of the inspector, typically making it available at `http://localhost:5173` in your browser.
+
+**Connecting to Your Server:**
+
+1.  **Open Inspector:** Navigate to the Inspector UI (e.g., `http://localhost:5173`).
+2.  **Configure Transport:**
+    *   Select `SSE` (Server-Sent Events) as the **Transport Type**.
+    *   Enter the **URL** of your MCP server's SSE endpoint:
+        *   **Local:** `http://localhost:8787/sse` (when running with `wrangler dev`)
+        *   **Deployed:** `https://your-worker-name.your-account.workers.dev/sse` (replace with your actual worker URL)
+3.  **Connect:** Click the **Connect** button.
+
+**Authentication Flow:**
+
+*   Since your server requires authentication, clicking "Connect" will initiate the OAuth flow.
+*   The Inspector will likely open a new browser tab or window redirecting you to `http://localhost:8787` (or your deployed URL), which in turn redirects to GitHub for login and authorization.
+*   Log in to GitHub (if necessary) and authorize the OAuth App you created.
+*   Upon successful authorization, GitHub redirects back to your worker's `/callback` endpoint.
+*   Your worker handles the callback, exchanges the code for a token, stores the session in KV, and sets a session cookie.
+*   The browser is then redirected back to the MCP Inspector UI.
+*   The Inspector, now possessing the session cookie, establishes the persistent SSE connection to your `/sse` endpoint.
+
+**Using Tools:**
+
+1.  **View Tools:** Once connected and authenticated, the Inspector should display a list of available tools fetched from your server (using the `listAvailableTools` meta-tool, if implemented, or by introspection).
+2.  **Select Tool:** Choose a tool from the dropdown menu (e.g., `getRepositoryGitHub`).
+3.  **Enter Parameters:** Input fields will appear based on the tool's Zod schema. Fill in the required parameters (e.g., `owner`: "cloudflare", `repo`: "workers-sdk").
+4.  **Call Tool:** Click the **Call Tool** button.
+5.  **View Response:** The Inspector will display the response received from the server, including the result or any errors, often allowing you to view the raw JSON or text content.
+
+**Debugging:**
+
+The Inspector is invaluable for debugging:
+
+*   **Verify Tool Discovery:** Ensure all expected tools are listed.
+*   **Test Tool Logic:** Call tools with different parameters to check their behavior and error handling.
+*   **Inspect Communication:** Some versions of the inspector might show the raw MCP messages being exchanged over the SSE connection, helping diagnose protocol-level issues.
+*   **Isolate Issues:** If a tool works in the Inspector but not in another client (like Claude or Cursor), the issue likely lies in the client's configuration or interaction, not the server itself.
+
+### Deployment
+
+1.  Ensure your `wrangler.jsonc` is configured correctly for your target environment (using environment-specific KV IDs if applicable).
+2.  Ensure the `GITHUB_CLIENT_SECRET` secret is set for the production environment.
+3.  Deploy the worker:
+    ```bash
+    npx wrangler deploy
+    ```
+4.  Update your GitHub OAuth App's **Homepage URL** and **Authorization callback URL** to use your deployed worker's URL (e.g., `https://your-worker-name.your-account.workers.dev`).
+
+### Core Architecture Explained
 
 Understanding the internal components.
 
-### 1. MCP Agent Implementation (`MyMCP`)
+#### 1. MCP Agent Implementation (`MyMCP`)
 
 The heart of the server is the `MyMCP` class, which extends `McpAgent`. It manages the MCP server lifecycle, tool registration, and integrates with the authentication context (`Props`) and environment bindings (`Env`).
 
@@ -648,7 +661,7 @@ export class MyMCP extends McpAgent<Props, Env> {
 }
 ```
 
-### 2. OAuth Provider Setup (`@cloudflare/workers-oauth-provider`)
+#### 2. OAuth Provider Setup (`@cloudflare/workers-oauth-provider`)
 
 The `OAuthProvider` handles the complexities of the OAuth 2.0 flow, directing users to GitHub for login and managing the callback to exchange the authorization code for an access token.
 
@@ -668,7 +681,7 @@ export default new OAuthProvider({
 });
 ```
 
-### 3. Tool Implementation Example (`createIssue`)
+#### 3. Tool Implementation Example (`createIssue`)
 
 This example shows how to implement a tool that requires authentication (`accessToken` from `Props`) and interacts with the GitHub API using `octokit`.
 
@@ -771,7 +784,7 @@ export function registerGitHubTools(
 }
 ```
 
-### 4. Tool Discovery Implementation (Manual Synchronization Required)
+#### 4. Tool Discovery Implementation (Manual Synchronization Required)
 
 This tool allows agents to ask what functionalities are available. **Crucially, this list must be manually updated whenever you add, remove, or rename tools.**
 
@@ -853,19 +866,19 @@ private registerToolDiscovery() {
 }
 ```
 
-## OAuth Authentication Flow Explained
+### OAuth Authentication Flow Explained
 
 *(This entire detailed section remains largely the same as before)*
 
-## Security Considerations
+### Security Considerations
 
 *(This entire section remains largely the same as before)*
 
-## Debugging
+### Debugging
 
 Tips for troubleshooting issues.
 
-### 1. Local Development Debugging
+#### 1. Local Development Debugging
 
 *   **Check `wrangler dev` output:** Look for errors during startup or request handling.
 *   **Use `console.log`:** Add logging within your `MyMCP` class, tool implementations, and `GitHubHandler`.
@@ -874,14 +887,14 @@ Tips for troubleshooting issues.
 *   **Clear Auth Cache:** If authentication seems stuck, try removing the local cache: `rm -rf ~/.mcp-auth`.
 *   **Browser Developer Tools:** Check the network tab during the OAuth redirect flow for errors.
 
-### 2. Production Monitoring
+#### 2. Production Monitoring
 
 *   **Worker Logs:** Use `npx wrangler tail` to view live logs from your deployed worker.
 *   **Cloudflare Dashboard:** Check Worker analytics for invocation counts, CPU time, and errors.
 *   **KV Metrics:** Monitor KV read/write operations and storage usage.
 *   **Inspect KV (Production):** Use `npx wrangler kv key list --binding=OAUTH_KV` (no `--preview`) to see production keys. Use `npx wrangler kv key get "session:SESSION_ID" --binding=OAUTH_KV` (no `--preview`) to view production session data.
 
-## Contributing
+### Contributing
 
 1.  Fork the repository.
 2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
@@ -889,7 +902,7 @@ Tips for troubleshooting issues.
 4.  Push to the branch (`git push origin feature/AmazingFeature`).
 5.  Open a Pull Request.
 
-## Resources
+### Resources
 
 *   [Model Context Protocol Documentation](https://modelcontextprotocol.io/docs)
 *   [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
